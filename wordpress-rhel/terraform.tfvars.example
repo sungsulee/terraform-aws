@@ -1,0 +1,9 @@
+aws_region       = "us-east-1"
+project_name     = "wordpress-rhel9"
+instance_type    = "t3.micro"
+key_name         = "your-keypair-name"
+allowed_ssh_cidr = "YOUR_PUBLIC_IP/32"
+
+db_name = "wordpress"
+db_user = "wpuser"
+

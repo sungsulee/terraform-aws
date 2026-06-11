@@ -1,0 +1,79 @@
+#!/bin/bash
+set -euxo pipefail
+
+# Log user-data output for troubleshooting
+exec > >(tee /var/log/user-data-web.log | logger -t user-data-web -s 2>/dev/console) 2>&1
+
+dnf update -y
+dnf install -y   httpd   php   php-cli   php-common   php-devel   php-fpm   php-gd   php-intl   php-json   php-mbstring   php-mysqlnd   php-opcache   php-pear   php-pecl-redis6   php-soap   php-xml   php-zip   mariadb   wget   tar   policycoreutils-python-utils
+
+systemctl enable httpd
+systemctl start httpd
+
+# Wait for DB and Redis to be reachable
+for i in {1..60}; do
+  if mysqladmin ping -h ${db_host} -u ${db_user} -p'${db_password}' --silent; then
+    break
+  fi
+  sleep 5
+done
+
+for i in {1..60}; do
+  if timeout 1 bash -c "</dev/tcp/${redis_host}/6379"; then
+    break
+  fi
+  sleep 5
+done
+
+cd /tmp
+wget -O latest.tar.gz https://wordpress.org/latest.tar.gz
+tar -xzf latest.tar.gz
+
+rm -f /var/www/html/index.html
+cp -a wordpress/. /var/www/html/
+
+cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
+sed -i "s/database_name_here/${db_name}/" /var/www/html/wp-config.php
+sed -i "s/username_here/${db_user}/" /var/www/html/wp-config.php
+sed -i "s/password_here/${db_password}/" /var/www/html/wp-config.php
+sed -i "s/localhost/${db_host}/" /var/www/html/wp-config.php
+
+cat <<'EOF' >> /var/www/html/wp-config.php
+
+define('FS_METHOD', 'direct');
+define('WP_CACHE', true);
+define('WP_REDIS_HOST', '${redis_host}');
+define('WP_REDIS_PORT', 6379);
+EOF
+
+cat >/etc/httpd/conf.d/wordpress.conf <<EOF
+<VirtualHost *:80>
+    ServerAdmin root@localhost
+    DocumentRoot /var/www/html
+
+    <Directory /var/www/html>
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog /var/log/httpd/wordpress-error.log
+    CustomLog /var/log/httpd/wordpress-access.log combined
+</VirtualHost>
+EOF
+
+# Required for pretty permalinks
+cat >/etc/httpd/conf.modules.d/00-rewrite-load.conf <<EOF
+LoadModule rewrite_module modules/mod_rewrite.so
+EOF
+
+# SELinux adjustments for WordPress writes
+chown -R apache:apache /var/www/html
+find /var/www/html -type d -exec chmod 755 {} \;
+find /var/www/html -type f -exec chmod 644 {} \;
+semanage fcontext -a -t httpd_sys_rw_content_t '/var/www/html(/.*)?' || true
+restorecon -Rv /var/www/html || true
+setsebool -P httpd_can_network_connect_db 1
+setsebool -P httpd_can_network_connect 1
+
+systemctl restart httpd
+
