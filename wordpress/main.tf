@@ -225,9 +225,9 @@ resource "aws_instance" "cache" {
   associate_public_ip_address = true
   key_name                    = var.key_name != "" ? var.key_name : null
 
-  user_data = templatefile("${path.module}/userdata/cache.sh.tftpl", {
-    cache_private_ip = aws_instance.cache.private_ip
-  })
+
+  user_data = file("${path.module}/userdata/cache.sh.tftpl")
+
 
   root_block_device {
     volume_size           = var.cache_volume_size
