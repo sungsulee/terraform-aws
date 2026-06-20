@@ -4,6 +4,11 @@ set -euxo pipefail
 # Log user-data output for troubleshooting
 exec > >(tee /var/log/user-data-cache.log | logger -t user-data-cache -s 2>/dev/console) 2>&1
 
+# Disable firewalld
+systemctl stop firewalld
+systemctl disable firewalld
+
+
 dnf update -y
 dnf install -y redis
 
