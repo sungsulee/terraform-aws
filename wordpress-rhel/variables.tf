@@ -43,7 +43,7 @@ variable "db_volume_size" {
 variable "cache_volume_size" {
   description = "Root disk size in GiB for cache server"
   type        = number
-  default     = 10
+  default     = 8
 }
 
 variable "db_name" {
