@@ -4,10 +4,16 @@ set -euxo pipefail
 # Log user-data output for troubleshooting
 exec > >(tee /var/log/user-data-web.log | logger -t user-data-web -s 2>/dev/console) 2>&1
 
+<<<<<<< HEAD
 # Disable firewalld
 systemctl stop firewalld
 systemctl disable firewalld
 
+=======
+# Stop Firewall
+systemctl disable firewalld
+systemctl stop firewalld
+>>>>>>> refs/remotes/origin/main
 
 dnf update -y
 dnf install -y   httpd   php   php-cli   php-common   php-devel   php-fpm   php-gd   php-intl   php-json   php-mbstring   php-mysqlnd   php-opcache   php-pear   php-pecl-redis6   php-soap   php-xml   php-zip   mariadb   wget   tar   policycoreutils-python-utils
